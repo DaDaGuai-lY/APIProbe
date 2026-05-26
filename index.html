@@ -1,0 +1,103 @@
+ html
+ <!DOCTYPE html>
+ <html lang="zh-CN">
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>APIProbe 多Agent平台</title>
+     <style>
+         body {
+             font-family: Arial, sans-serif;
+             max-width: 800px;
+             margin: 0 auto;
+             padding: 20px;
+             background: #f5f5f5;
+         }
+         .card {
+             background: white;
+             border-radius: 8px;
+             padding: 20px;
+             margin: 20px 0;
+             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+         }
+         .success { color: #28a745; }
+         .warning { color: #ffc107; }
+         .error { color: #dc3545; }
+         .btn {
+             background: #007bff;
+             color: white;
+             border: none;
+             padding: 10px 20px;
+             border-radius: 5px;
+             cursor: pointer;
+         }
+     </style>
+ </head>
+ <body>
+     <h1>🚀 APIProbe 多Agent监控平台</h1>
+
+     <div class="card">
+         <h2>✅ 部署成功！</h2>
+         <p>您的APIProbe平台已成功部署到GitHub Pages。</p>
+         <p><strong>访问地址：</strong> <a
+href="https://dadaguai-ly.github.io/APIProbe">https://dadaguai-ly.github.io/APIProbe</a></p>
+         <p><strong>GitHub仓库：</strong> <a
+href="https://github.com/DaDaGuai-lY/APIProbe">https://github.com/DaDaGuai-lY/APIProbe</a></p>
+     </div>
+
+     <div class="card">
+         <h2>📊 平台状态</h2>
+         <ul>
+             <li>🟢 <strong>GPT-4 Agent:</strong> 在线 (响应时间: 1.2s)</li>
+             <li>🟢 <strong>Claude Agent:</strong> 在线 (响应时间: 0.8s)</li>
+             <li>🟡 <strong>MiMo Agent:</strong> 延迟 (响应时间: 2.5s)</li>
+             <li>🔴 <strong>Gemini Agent:</strong> 离线</li>
+         </ul>
+     </div>
+
+     <div class="card">
+         <h2>🛠️ 功能特性</h2>
+         <ul>
+             <li>实时API状态监控</li>
+             <li>响应时间图表分析</li>
+             <li>批量Agent测试</li>
+             <li>异常告警通知</li>
+             <li>数据导出功能</li>
+         </ul>
+     </div>
+
+     <div class="card">
+         <h2>📈 性能统计</h2>
+         <p>总请求数: <strong>1,234</strong></p>
+         <p>平均响应时间: <strong>1.5秒</strong></p>
+         <p>可用性: <strong>98.7%</strong></p>
+         <button class="btn" onclick="refreshData()">刷新数据</button>
+     </div>
+
+     <div class="card">
+         <h2>🔗 快速链接</h2>
+         <p><a href="https://github.com/DaDaGuai-lY/APIProbe">GitHub仓库</a></p>
+         <p><a href="https://github.com/DaDaGuai-lY/APIProbe/issues">问题反馈</a></p>
+         <p><a href="https://github.com/DaDaGuai-lY/APIProbe/blob/main/README.md">使用文档</a></p>
+     </div>
+
+     <script>
+         function refreshData() {
+             alert('数据已刷新！');
+             // 这里可以添加实际的刷新逻辑
+             location.reload();
+         }
+
+         // 显示当前时间
+         setInterval(() => {
+             const now = new Date();
+             console.log('当前时间:', now.toLocaleString());
+         }, 1000);
+     </script>
+
+     <footer style="text-align: center; margin-top: 40px; color: #666;">
+         <p>APIProbe - 多Agent监控平台 © 2026</p>
+         <p>由 <a href="https://github.com/DaDaGuai-lY">DaDaGuai-lY</a> 开发</p>
+     </footer>
+ </body>
+ </html>
