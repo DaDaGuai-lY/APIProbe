@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>APIProbe · Multi-Agent API Testing Platform</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #07070a;
+            --surface: #0c0d14;
+            --surface-2: #11131b;
+            --surface-3: #171924;
+            --border: #1c1f2e;
+            --border-light: #252840;
+            --green: #00e87b;
+            --green-dim: #00e87b30;
+            --green-glow: #00e87b18;
+            --cyan: #00b4d8;
+            --cyan-dim: #00b4d830;
+            --amber: #f59e0b;
+            --amber-dim: #f59e0b30;
+            --red: #ef4444;
+            --red-dim: #ef444430;
+            --text: #e0e1e8;
+            --text-muted: #585b72;
+            --text-dim: #3a3d50;
+            --font-display: 'Syne', sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+        }
+
+        body {
+            font-family: var(--font-mono);
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(var(--border) 1px, transparent 1px),
+                linear-gradient(90deg, var(--border) 1px, transparent 1px);
+            background-size: 60px 60px;
+            opacity: 0.08;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        #app { position: relative; z-index: 1; max-width: 1440px; margin: 0 auto; padding: 0 24px 40px; }
+
+        /* ─── NAV ─── */
+        nav {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 20px 0; border-bottom: 1px solid var(--border); margin-bottom: 28px;
+        }
+        .logo { display: flex; align-items: center; gap: 14px; }
+        .logo-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: linear-gradient(135deg, var(--green), var(--cyan));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px; font-weight: 800; color: var(--bg);
+            font-family: var(--font-display);
+        }
+        .logo-text {
+            font-family: var(--font-display); font-weight: 800; font-size: 22px;
+            letter-spacing: -0.5px; color: var(--text);
+        }
+        .logo-version {
+            font-size: 10px; color: var(--text-muted); background: var(--surface-2);
+            padding: 2px 8px; border-radius: 4px; margin-left: 8px; font-weight: 500;
+        }
+        .nav-right { display: flex; align-items: center; gap: 16px; }
+        .nav-status {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 11px; color: var(--text-muted); font-weight: 500;
+        }
+        .status-dot {
+            width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+            animation: pulse 2s infinite;
+        }
+        .btn-run {
+            display: flex; align-items: center; gap: 8px;
+            background: var(--green); color: var(--bg); border: none;
+            padding: 10px 22px; border-radius: 8px; cursor: pointer;
+            font-family: var(--font-mono); font-size: 12px; font-weight: 600;
+            letter-spacing: 0.3px; transition: all 0.2s ease;
+            position: relative; overflow: hidden;
+        }
+        .btn-run:hover { transform: translateY(-1px); box-shadow: 0 4px 24px var(--green-dim); }
+        .btn-run:active { transform: translateY(0); }
+        .btn-run.running { background: var(--amber); pointer-events: none; }
+        .btn-run .spinner {
+            display: none; width: 14px; height: 14px;
+            border: 2px solid var(--bg); border-top-color: transparent;
+            border-radius: 50%; animation: spin 0.6s linear infinite;
+        }
+        .btn-run.running .spinner { display: block; }
+        .btn-run.running .btn-icon { display: none; }
+
+        /* ─── KPI STATS ─── */
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+        .stat-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 12px; padding: 22px 24px;
+            transition: all 0.3s ease; position: relative; overflow: hidden;
+        }
+        .stat-card:hover { border-color: var(--border-light); transform: translateY(-2px); }
+        .stat-card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: var(--accent, var(--green)); opacity: 0.6;
+        }
+        .stat-label { font-size: 11px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .stat-value {
+            font-family: var(--font-display); font-size: 32px; font-weight: 800;
+            letter-spacing: -1px; line-height: 1;
+        }
+        .stat-sub { font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+        .stat-sub .up { color: var(--green); }
+        .stat-sub .down { color: var(--red); }
+        .stat-card:nth-child(1) { --accent: var(--green); }
+        .stat-card:nth-child(2) { --accent: var(--cyan); }
+        .stat-card:nth-child(3) { --accent: var(--amber); }
+        .stat-card:nth-child(4) { --accent: #a78bfa; }
+
+        /* ─── PIPELINE ─── */
+        .pipeline-section {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; padding: 28px; margin-bottom: 24px;
+        }
+        .section-header {
+            display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px;
+        }
+        .section-title {
+            font-family: var(--font-display); font-size: 15px; font-weight: 700;
+            letter-spacing: -0.3px; color: var(--text);
+        }
+        .section-badge {
+            font-size: 10px; color: var(--text-muted); background: var(--surface-3);
+            padding: 4px 10px; border-radius: 6px; font-weight: 500;
+        }
+        .pipeline {
+            display: flex; align-items: center; justify-content: center; gap: 0;
+            padding: 8px 0;
+        }
+        .agent-card {
+            background: var(--surface-2); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px 18px; width: 170px;
+            text-align: center; transition: all 0.4s ease; position: relative;
+        }
+        .agent-card.active {
+            border-color: var(--green);
+            box-shadow: 0 0 30px var(--green-dim), inset 0 0 20px var(--green-glow);
+        }
+        .agent-card.complete { border-color: var(--green); opacity: 0.7; }
+        .agent-card .agent-icon {
+            font-size: 26px; margin-bottom: 10px; display: block;
+            filter: grayscale(0.6); transition: filter 0.4s;
+        }
+        .agent-card.active .agent-icon,
+        .agent-card.complete .agent-icon { filter: grayscale(0); }
+        .agent-card .agent-name {
+            font-family: var(--font-display); font-size: 13px; font-weight: 700;
+            margin-bottom: 4px; color: var(--text);
+        }
+        .agent-card .agent-role { font-size: 10px; color: var(--text-muted); margin-bottom: 10px; }
+        .agent-card .agent-status {
+            font-size: 10px; font-weight: 600; padding: 3px 10px;
+            border-radius: 20px; display: inline-block;
+        }
+        .agent-card .agent-status.idle { background: var(--surface-3); color: var(--text-dim); }
+        .agent-card .agent-status.running { background: var(--green-dim); color: var(--green); animation: pulse-bg 1.5s infinite; }
+        .agent-card .agent-status.done { background: var(--green-dim); color: var(--green); }
+        .pipeline-arrow {
+            display: flex; align-items: center; justify-content: center;
+            width: 48px; position: relative; color: var(--text-dim); font-size: 18px;
+        }
+        .pipeline-arrow .arrow-line {
+            width: 100%; height: 1px; background: var(--border-light); position: relative;
+        }
+        .pipeline-arrow .flow-dot {
+            position: absolute; top: -2px; width: 5px; height: 5px;
+            border-radius: 50%; background: var(--green); opacity: 0;
+        }
+        .pipeline-arrow.active .flow-dot {
+            animation: flowRight 1s linear infinite;
+        }
+        .pipeline-arrow.active .arrow-line { background: var(--green); opacity: 0.3; }
+
+        /* ─── WORKSPACE ─── */
+        .workspace {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px;
+        }
+        .panel {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; overflow: hidden;
+        }
+        .panel-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 18px 22px; border-bottom: 1px solid var(--border);
+        }
+        .panel-title {
+            font-family: var(--font-display); font-size: 14px; font-weight: 700;
+        }
+        .panel-tabs { display: flex; gap: 4px; }
+        .panel-tab {
+            font-size: 11px; padding: 5px 12px; border-radius: 6px;
+            cursor: pointer; color: var(--text-muted); font-weight: 500;
+            transition: all 0.2s; border: none; background: none;
+            font-family: var(--font-mono);
+        }
+        .panel-tab:hover { color: var(--text); background: var(--surface-2); }
+        .panel-tab.active { color: var(--green); background: var(--green-dim); }
+        .panel-body { padding: 0; max-height: 380px; overflow-y: auto; }
+        .panel-body::-webkit-scrollbar { width: 4px; }
+        .panel-body::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+
+        /* ─── ENDPOINT TABLE ─── */
+        .endpoint-row {
+            display: grid; grid-template-columns: 70px 1fr 80px 80px 70px;
+            align-items: center; padding: 12px 22px;
+            border-bottom: 1px solid var(--border); transition: background 0.15s;
+            font-size: 12px;
+        }
+        .endpoint-row:hover { background: var(--surface-2); }
+        .endpoint-row.header {
+            font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.8px; font-weight: 600; background: var(--surface-2);
+            position: sticky; top: 0; z-index: 2;
+        }
+        .method {
+            font-size: 10px; font-weight: 700; padding: 3px 8px;
+            border-radius: 4px; display: inline-block; width: fit-content;
+            letter-spacing: 0.5px;
+        }
+        .method.get { background: #22c55e18; color: #22c55e; }
+        .method.post { background: #3b82f618; color: #3b82f6; }
+        .method.put { background: #f59e0b18; color: #f59e0b; }
+        .method.delete { background: #ef444418; color: #ef4444; }
+        .method.patch { background: #a78bfa18; color: #a78bfa; }
+        .endpoint-path { color: var(--text); font-weight: 400; }
+        .endpoint-latency { color: var(--text-muted); }
+        .endpoint-status { font-weight: 600; }
+        .endpoint-status.pass { color: var(--green); }
+        .endpoint-status.fail { color: var(--red); }
+        .endpoint-tests { color: var(--text-muted); text-align: right; }
+
+        /* ─── EXECUTION HISTORY ─── */
+        .exec-row {
+            display: grid; grid-template-columns: 55px 90px 1fr 80px 90px;
+            align-items: center; padding: 12px 22px;
+            border-bottom: 1px solid var(--border); transition: background 0.15s; font-size: 12px;
+        }
+        .exec-row:hover { background: var(--surface-2); }
+        .exec-row.header {
+            font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+            letter-spacing: 0.8px; font-weight: 600; background: var(--surface-2);
+            position: sticky; top: 0; z-index: 2;
+        }
+        .exec-id { color: var(--text-muted); }
+        .exec-time { color: var(--text-muted); font-size: 11px; }
+        .exec-agents { display: flex; gap: 3px; }
+        .exec-agent-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+        }
+        .exec-result { font-weight: 600; }
+        .exec-result.pass { color: var(--green); }
+        .exec-result.fail { color: var(--red); }
+        .exec-result.partial { color: var(--amber); }
+        .exec-duration { color: var(--text-muted); text-align: right; }
+
+        /* ─── LOG VIEWER ─── */
+        .log-section {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 14px; overflow: hidden;
+        }
+        .log-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 22px; border-bottom: 1px solid var(--border);
+            background: var(--surface-2);
+        }
+        .log-header-left { display: flex; align-items: center; gap: 10px; }
+        .log-dots { display: flex; gap: 6px; }
+        .log-dot { width: 10px; height: 10px; border-radius: 50%; }
+        .log-dot.r { background: #ef4444; }
+        .log-dot.y { background: #f59e0b; }
+        .log-dot.g { background: #22c55e; }
+        .log-title {
+            font-size: 11px; color: var(--text-muted); font-weight: 600;
+            letter-spacing: 0.5px; text-transform: uppercase;
+        }
+        .log-clear {
+            font-size: 10px; color: var(--text-dim); cursor: pointer;
+            background: none; border: 1px solid var(--border); padding: 4px 10px;
+            border-radius: 4px; font-family: var(--font-mono); transition: all 0.2s;
+        }
+        .log-clear:hover { color: var(--text-muted); border-color: var(--border-light); }
+        .log-body {
+            padding: 16px 22px; max-height: 280px; overflow-y: auto;
+            font-size: 12px; line-height: 1.8;
+        }
+        .log-body::-webkit-scrollbar { width: 4px; }
+        .log-body::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 4px; }
+        .log-line { display: flex; gap: 12px; opacity: 0; animation: fadeInLog 0.3s ease forwards; }
+        .log-time { color: var(--text-dim); flex-shrink: 0; font-size: 11px; }
+        .log-agent {
+            flex-shrink: 0; font-weight: 600; font-size: 11px; min-width: 80px;
+        }
+        .log-agent.scanner { color: var(--cyan); }
+        .log-agent.parser { color: #a78bfa; }
+        .log-agent.generator { color: var(--amber); }
+        .log-agent.executor { color: var(--green); }
+        .log-agent.analyzer { color: #f472b6; }
+        .log-agent.reporter { color: #fb923c; }
+        .log-agent.system { color: var(--text-muted); }
+        .log-msg { color: var(--text); }
+        .log-msg .highlight { color: var(--green); font-weight: 600; }
+        .log-msg .warn { color: var(--amber); font-weight: 600; }
+        .log-msg .error { color: var(--red); font-weight: 600; }
+
+        /* ─── TAB CONTENT ─── */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* ─── ANIMATIONS ─── */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        @keyframes pulse-bg {
+            0%, 100% { background: var(--green-dim); }
+            50% { background: var(--green-glow); }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        @keyframes flowRight {
+            0% { left: -4px; opacity: 0; }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { left: calc(100% + 4px); opacity: 0; }
+        }
+        @keyframes fadeInLog {
+            from { opacity: 0; transform: translateX(-8px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes fadeUp {
+            from { opacity: 0; transform: translateY(16px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .fade-up { animation: fadeUp 0.5s ease forwards; }
+        .fade-up:nth-child(1) { animation-delay: 0s; }
+        .fade-up:nth-child(2) { animation-delay: 0.08s; }
+        .fade-up:nth-child(3) { animation-delay: 0.16s; }
+        .fade-up:nth-child(4) { animation-delay: 0.24s; }
+    </style>
+</head>
+<body>
+<div id="app">
+    <!-- NAV -->
+    <nav>
+        <div class="logo">
+            <div class="logo-icon">P</div>
+            <span class="logo-text">APIProbe</span>
+            <span class="logo-version">v0.9.2</span>
+        </div>
+        <div class="nav-right">
+            <div class="nav-status">
+                <span class="status-dot"></span>
+                <span>6 Agents Online</span>
+            </div>
+            <button class="btn-run" id="btnRun" onclick="runTests()">
+                <span class="btn-icon">▶</span>
+                <span class="spinner"></span>
+                <span class="btn-text">Run Full Suite</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- KPI STATS -->
+    <div class="stats">
+        <div class="stat-card fade-up">
+            <div class="stat-label">Total Test Cases</div>
+            <div class="stat-value" id="statTests">1,247</div>
+            <div class="stat-sub"><span class="up">↑ 12.4%</span> vs last week</div>
+        </div>
+        <div class="stat-card fade-up">
+            <div class="stat-label">Pass Rate</div>
+            <div class="stat-value" id="statPass">94.2%</div>
+            <div class="stat-sub"><span class="up">↑ 2.1%</span> improvement</div>
+        </div>
+        <div class="stat-card fade-up">
+            <div class="stat-label">Active Agents</div>
+            <div class="stat-value" id="statAgents">6</div>
+            <div class="stat-sub">All systems operational</div>
+        </div>
+        <div class="stat-card fade-up">
+            <div class="stat-label">API Endpoints</div>
+            <div class="stat-value" id="statAPIs">128</div>
+            <div class="stat-sub"><span class="up">↑ 8</span> new this week</div>
+        </div>
+    </div>
+
+    <!-- AGENT PIPELINE -->
+    <div class="pipeline-section fade-up">
+        <div class="section-header">
+            <div class="section-title">Agent Collaboration Pipeline</div>
+            <div class="section-badge">6 Agents · Parallel + Sequential</div>
+        </div>
+        <div class="pipeline" id="pipeline">
+            <div class="agent-card" id="agent-scan">
+                <span class="agent-icon">📡</span>
+                <div class="agent-name">Scanner</div>
+                <div class="agent-role">API Discovery</div>
+                <span class="agent-status idle">IDLE</span>
+            </div>
+            <div class="pipeline-arrow" id="arrow-1"><div class="arrow-line"><div class="flow-dot"></div></div></div>
+            <div class="agent-card" id="agent-parse">
+                <span class="agent-icon">🔍</span>
+                <div class="agent-name">Parser</div>
+                <div class="agent-role">Schema Analysis</div>
+                <span class="agent-status idle">IDLE</span>
+            </div>
+            <div class="pipeline-arrow" id="arrow-2"><div class="arrow-line"><div class="flow-dot"></div></div></div>
+            <div class="agent-card" id="agent-gen">
+                <span class="agent-icon">🧠</span>
+                <div class="agent-name">Generator</div>
+                <div class="agent-role">AI Test Creation</div>
+                <span class="agent-status idle">IDLE</span>
+            </div>
+            <div class="pipeline-arrow" id="arrow-3"><div class="arrow-line"><div class="flow-dot"></div></div></div>
+            <div class="agent-card" id="agent-exec">
+                <span class="agent-icon">⚡</span>
+                <div class="agent-name">Executor</div>
+                <div class="agent-role">Parallel Runner</div>
+                <span class="agent-status idle">IDLE</span>
+            </div>
+            <div class="pipeline-arrow" id="arrow-4"><div class="arrow-line"><div class="flow-dot"></div></div></div>
+            <div class="agent-card" id="agent-analyze">
+                <span class="agent-icon">📊</span>
+                <div class="agent-name">Analyzer</div>
+                <div class="agent-role">Result Inference</div>
+                <span class="agent-status idle">IDLE</span>
+            </div>
+            <div class="pipeline-arrow" id="arrow-5"><div class="arrow-line"><div class="flow-dot"></div></div></div>
+            <div class="agent-card" id="agent-report">
+                <span class="agent-icon">📝</span>
+                <div class="agent-name">Reporter</div>
+                <div class="agent-role">Report Generation</div>
+                <span class="agent-status idle">IDLE</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- WORKSPACE -->
+    <div class="workspace">
+        <!-- ENDPOINTS PANEL -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Monitored Endpoints</div>
+                <div class="panel-tabs">
+                    <button class="panel-tab active" onclick="switchEndpointTab(this, 'all')">All</button>
+                    <button class="panel-tab" onclick="switchEndpointTab(this, 'failing')">Failing</button>
+                </div>
+            </div>
+            <div class="panel-body" id="endpointBody">
+                <div class="endpoint-row header">
+                    <span>Method</span><span>Endpoint</span><span>Latency</span><span>Status</span><span style="text-align:right">Tests</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- EXECUTION HISTORY PANEL -->
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title">Execution History</div>
+                <div class="panel-tabs">
+                    <button class="panel-tab active">Recent</button>
+                    <button class="panel-tab">Failed</button>
+                </div>
+            </div>
+            <div class="panel-body" id="execBody">
+                <div class="exec-row header">
+                    <span>ID</span><span>Time</span><span>Agents</span><span>Result</span><span style="text-align:right">Duration</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOG VIEWER -->
+    <div class="log-section">
+        <div class="log-header">
+            <div class="log-header-left">
+                <div class="log-dots">
+                    <span class="log-dot r"></span>
+                    <span class="log-dot y"></span>
+                    <span class="log-dot g"></span>
+                </div>
+                <span class="log-title">Agent Communication Log</span>
+            </div>
+            <button class="log-clear" onclick="clearLogs()">Clear</button>
+        </div>
+        <div class="log-body" id="logBody"></div>
+    </div>
+</div>
+
+<script>
+    // ─── DATA ───
+    const endpoints = [
+        { method: 'GET',    path: '/api/v2/users',           latency: '45ms',  status: 'pass', tests: 18 },
+        { method: 'POST',   path: '/api/v2/auth/login',      latency: '120ms', status: 'pass', tests: 24 },
+        { method: 'GET',    path: '/api/v2/users/{id}',      latency: '38ms',  status: 'pass', tests: 12 },
+        { method: 'POST',   path: '/api/v2/orders',          latency: '210ms', status: 'fail', tests: 31 },
+        { method: 'PUT',    path: '/api/v2/users/{id}',      latency: '67ms',  status: 'pass', tests: 15 },
+        { method: 'DELETE',  path: '/api/v2/users/{id}',     latency: '42ms',  status: 'pass', tests: 8  },
+        { method: 'GET',    path: '/api/v2/products',        latency: '89ms',  status: 'pass', tests: 22 },
+        { method: 'POST',   path: '/api/v2/payments',        latency: '340ms', status: 'fail', tests: 28 },
+        { method: 'PATCH',  path: '/api/v2/orders/{id}',     latency: '155ms', status: 'pass', tests: 19 },
+        { method: 'GET',    path: '/api/v2/analytics/summary', latency: '520ms', status: 'pass', tests: 14 },
+        { method: 'POST',   path: '/api/v2/upload',          latency: '890ms', status: 'fail', tests: 10 },
+        { method: 'GET',    path: '/api/v2/notifications',   latency: '52ms',  status: 'pass', tests: 16 },
+    ];
+
+    const agentColors = {
+        scanner: '#00b4d8', parser: '#a78bfa', generator: '#f59e0b',
+        executor: '#00e87b', analyzer: '#f472b6', reporter: '#fb923c'
+    };
+
+    let execCounter = 1248;
+    let isRunning = false;
+
+    // ─── RENDER ENDPOINTS ───
+    function renderEndpoints(filter = 'all') {
+        const body = document.getElementById('endpointBody');
+        const header = body.querySelector('.header');
+        body.innerHTML = '';
+        body.appendChild(header);
+
+        const filtered = filter === 'failing' ? endpoints.filter(e => e.status === 'fail') : endpoints;
+        filtered.forEach(ep => {
+            const row = document.createElement('div');
+            row.className = 'endpoint-row';
+            row.innerHTML = `
+                <span><span class="method ${ep.method.toLowerCase()}">${ep.method}</span></span>
+                <span class="endpoint-path">${ep.path}</span>
+                <span class="endpoint-latency">${ep.latency}</span>
+                <span class="endpoint-status ${ep.status}">${ep.status === 'pass' ? '✓ Pass' : '✗ Fail'}</span>
+                <span class="endpoint-tests">${ep.tests}</span>
+            `;
+            body.appendChild(row);
+        });
+    }
+
+    function switchEndpointTab(btn, filter) {
+        btn.parentElement.querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        renderEndpoints(filter);
+    }
+
+    // ─── RENDER EXECUTIONS ───
+    function renderExecutions() {
+        const body = document.getElementById('execBody');
+        const header = body.querySelector('.header');
+        body.innerHTML = '';
+        body.appendChild(header);
+
+        const execs = [
+            { id: '#1247', time: '2 min ago',  agents: ['scanner','parser','generator','executor','analyzer','reporter'], result: 'pass',   duration: '4.2s',  resultLabel: '47/47' },
+            { id: '#1246', time: '5 min ago',  agents: ['scanner','parser','generator','executor','analyzer','reporter'], result: 'pass',   duration: '3.8s',  resultLabel: '44/47' },
+            { id: '#1245', time: '8 min ago',  agents: ['scanner','parser','generator','executor','analyzer','reporter'], result: 'partial', duration: '5.1s', resultLabel: '41/47' },
+            { id: '#1244', time: '12 min ago', agents: ['scanner','parser','generator','executor','analyzer','reporter'], result: 'pass',   duration: '4.5s',  resultLabel: '46/47' },
+            { id: '#1243', time: '18 min ago', agents: ['scanner','executor','analyzer'],                                  result: 'fail',   duration: '2.9s',  resultLabel: '38/47' },
+            { id: '#1242', time: '25 min ago', agents: ['scanner','parser','generator','executor','analyzer','reporter'], result: 'pass',   duration: '4.0s',  resultLabel: '47/47' },
+            { id: '#1241', time: '32 min ago', agents: ['scanner','parser','generator','executor','analyzer','reporter'], result: 'pass',   duration: '3.7s',  resultLabel: '45/47' },
+        ];
+
+        execs.forEach(ex => {
+            const row = document.createElement('div');
+            row.className = 'exec-row';
+            const dots = ex.agents.map(a => `<span class="exec-agent-dot" style="background:${agentColors[a]}"></span>`).join('');
+            row.innerHTML = `
+                <span class="exec-id">${ex.id}</span>
+                <span class="exec-time">${ex.time}</span>
+                <span class="exec-agents">${dots}</span>
+                <span class="exec-result ${ex.result}">${ex.resultLabel}</span>
+                <span class="exec-duration">${ex.duration}</span>
+            `;
+            body.appendChild(row);
+        });
+    }
+
+    // ─── LOG SYSTEM ───
+    function addLog(agent, msg) {
+        const body = document.getElementById('logBody');
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        const now = new Date();
+        const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+        line.innerHTML = `<span class="log-time">${ts}</span><span class="log-agent ${agent}">[${agent.toUpperCase()}]</span><span class="log-msg">${msg}</span>`;
+        body.appendChild(line);
+        body.scrollTop = body.scrollHeight;
+
+        // Keep max 80 lines
+        while (body.children.length > 80) body.removeChild(body.firstChild);
+    }
+
+    function clearLogs() {
+        document.getElementById('logBody').innerHTML = '';
+    }
+
+    // ─── AGENT PIPELINE CONTROL ───
+    function setAgentState(agentId, state) {
+        const card = document.getElementById(agentId);
+        const statusEl = card.querySelector('.agent-status');
+        card.classList.remove('active', 'complete');
+        statusEl.className = 'agent-status ' + state;
+
+        if (state === 'running') {
+            card.classList.add('active');
+            statusEl.textContent = 'RUNNING';
+        } else if (state === 'done') {
+            card.classList.add('complete');
+            statusEl.textContent = 'COMPLETE';
+        } else {
+            statusEl.textContent = 'IDLE';
+        }
+    }
+
+    function setArrowState(arrowId, active) {
+        const arrow = document.getElementById(arrowId);
+        if (active) arrow.classList.add('active');
+        else arrow.classList.remove('active');
+    }
+
+    function resetPipeline() {
+        ['agent-scan','agent-parse','agent-gen','agent-exec','agent-analyze','agent-report'].forEach(id => setAgentState(id, 'idle'));
+        ['arrow-1','arrow-2','arrow-3','arrow-4','arrow-5'].forEach(id => setArrowState(id, false));
+    }
+
+    // ─── RUN TESTS SIMULATION ───
+    async function runTests() {
+        if (isRunning) return;
+        isRunning = true;
+
+        const btn = document.getElementById('btnRun');
+        btn.classList.add('running');
+        btn.querySelector('.btn-text').textContent = 'Executing...';
+
+        resetPipeline();
+        addLog('system', '<span class="highlight">▶ Full test suite execution initiated</span>');
+        addLog('system', 'Orchestrator dispatching tasks to agent pipeline...');
+
+        await delay(600);
+
+        // SCANNER
+        setAgentState('agent-scan', 'running');
+        setArrowState('arrow-1', true);
+        addLog('scanner', 'Initiating API endpoint discovery scan...');
+        await delay(400);
+        addLog('scanner', 'Scanning OpenAPI spec at /docs/openapi.json');
+        await delay(300);
+        addLog('scanner', 'Crawling 12 base routes for nested endpoints...');
+        await delay(500);
+        addLog('scanner', 'Discovered <span class="highlight">3 new endpoints</span> since last run');
+        await delay(200);
+        addLog('scanner', 'Endpoint fingerprint: <span class="highlight">128 total</span> (125 known + 3 new)');
+        setAgentState('agent-scan', 'done');
+        await delay(300);
+
+        // PARSER
+        setAgentState('agent-parse', 'running');
+        setArrowState('arrow-2', true);
+        addLog('parser', 'Analyzing request/response schemas for 128 endpoints...');
+        await delay(400);
+        addLog('parser', 'Extracting JSON Schema from /api/v2/orders POST response');
+        await delay(300);
+        addLog('parser', 'Detected <span class="warn">nullable field conflict</span> in /api/v2/payments.response.id');
+        await delay(400);
+        addLog('parser', 'Schema diff: 4 endpoints have changed since last run');
+        await delay(200);
+        addLog('parser', 'Building dependency graph: 23 inter-endpoint relationships mapped');
+        setAgentState('agent-parse', 'done');
+        await delay(300);
+
+        // GENERATOR
+        setAgentState('agent-gen', 'running');
+        setArrowState('arrow-3', true);
+        addLog('generator', 'AI model analyzing schemas to generate test cases...');
+        await delay(500);
+        addLog('generator', 'Generating boundary value tests for /api/v2/users pagination...');
+        await delay(400);
+        addLog('generator', 'Generating auth flow tests: login → token refresh → logout...');
+        await delay(400);
+        addLog('generator', 'Creating negative test cases: invalid payloads, missing headers...');
+        await delay(300);
+        addLog('generator', 'Generated <span class="highlight">47 test cases</span> (32 positive + 15 negative)');
+        await delay(200);
+        addLog('generator', 'Token usage: 124,380 tokens for test generation');
+        setAgentState('agent-gen', 'done');
+        await delay(300);
+
+        // EXECUTOR
+        setAgentState('agent-exec', 'running');
+        setArrowState('arrow-4', true);
+        addLog('executor', 'Initializing parallel test execution (8 concurrent workers)...');
+        await delay(400);
+        addLog('executor', 'Running batch 1/6: GET endpoints (18 cases)');
+        await delay(500);
+        addLog('executor', 'Running batch 2/6: POST endpoints (14 cases)');
+        await delay(500);
+        addLog('executor', '<span class="warn">Slow response detected</span>: /api/v2/upload took 892ms (threshold: 500ms)');
+        await delay(400);
+        addLog('executor', 'Running batch 3/6: PUT/PATCH endpoints (8 cases)');
+        await delay(300);
+        addLog('executor', 'Running batch 4/6: DELETE endpoints (4 cases)');
+        await delay(400);
+        addLog('executor', 'Running batch 5/6: Auth flow integration (2 cases)');
+        await delay(300);
+        addLog('executor', 'Running batch 6/6: Edge cases (1 case)');
+        await delay(200);
+        addLog('executor', '<span class="error">3 test failures detected</span> — saving request/response dumps');
+        addLog('executor', 'All 47 tests completed. <span class="highlight">44 passed, 3 failed</span>');
+        setAgentState('agent-exec', 'done');
+        await delay(300);
+
+        // ANALYZER
+        setAgentState('agent-analyze', 'running');
+        setArrowState('arrow-5', true);
+        addLog('analyzer', 'Performing root cause analysis on 3 failures...');
+        await delay(500);
+        addLog('analyzer', 'Failure #1: POST /api/v2/orders — <span class="error">500 Internal Server Error</span>');
+        await delay(300);
+        addLog('analyzer', '  └─ Root cause: null value in required field "shipping_address.line2"');
+        await delay(300);
+        addLog('analyzer', 'Failure #2: POST /api/v2/payments — <span class="error">timeout after 30s</span>');
+        await delay(300);
+        addLog('analyzer', '  └─ Root cause: upstream payment gateway latency spike');
+        await delay(300);
+        addLog('analyzer', 'Failure #3: POST /api/v2/upload — <span class="error">413 Payload Too Large</span>');
+        await delay(200);
+        addLog('analyzer', '  └─ Root cause: file size limit not documented in OpenAPI spec');
+        await delay(300);
+        addLog('analyzer', 'Confidence: High (2/3), Medium (1/3). Suggesting 2 hotfixes.');
+        setAgentState('agent-analyze', 'done');
+        await delay(300);
+
+        // REPORTER
+        setAgentState('agent-report', 'running');
+        addLog('reporter', 'Compiling test report with failure analysis...');
+        await delay(400);
+        addLog('reporter', 'Generating diff comparison with previous run (#1246)...');
+        await delay(300);
+        addLog('reporter', 'Report saved: reports/run-1248.html');
+        addLog('reporter', 'Pushing notification to Slack #api-alerts channel');
+        await delay(200);
+        addLog('reporter', 'Updating dashboard metrics...');
+        setAgentState('agent-report', 'done');
+        await delay(400);
+
+        // DONE
+        addLog('system', '<span class="highlight">✓ Pipeline execution complete — Run #1248</span>');
+        addLog('system', 'Total duration: 4.6s | Tokens consumed: 187,420 | Cost: $0.047');
+
+        // Update stats
+        execCounter++;
+        document.getElementById('statTests').textContent = execCounter.toLocaleString();
+
+        // Add new execution record
+        addExecutionRecord();
+
+        btn.classList.remove('running');
+        btn.querySelector('.btn-text').textContent = 'Run Full Suite';
+        isRunning = false;
+    }
+
+    function addExecutionRecord() {
+        const body = document.getElementById('execBody');
+        const header = body.querySelector('.header');
+        const row = document.createElement('div');
+        row.className = 'exec-row';
+        row.style.animation = 'fadeUp 0.4s ease forwards';
+        const dots = Object.values(agentColors).map(c => `<span class="exec-agent-dot" style="background:${c}"></span>`).join('');
+        const now = new Date();
+        const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+        row.innerHTML = `
+            <span class="exec-id">#${execCounter}</span>
+            <span class="exec-time">Just now</span>
+            <span class="exec-agents">${dots}</span>
+            <span class="exec-result partial">44/47</span>
+            <span class="exec-duration">4.6s</span>
+        `;
+        if (header.nextSibling) body.insertBefore(row, header.nextSibling);
+        else body.appendChild(row);
+    }
+
+    function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+    // ─── AMBIENT LOG STREAM ───
+    const ambientLogs = [
+        { agent: 'system',    msg: 'Heartbeat: all 6 agents responsive (avg latency: 12ms)' },
+        { agent: 'scanner',   msg: 'Watching /api/v2/users for schema changes...' },
+        { agent: 'executor',  msg: 'Connection pool: 8/8 workers available' },
+        { agent: 'parser',    msg: 'Schema cache hit ratio: 94.2%' },
+        { agent: 'generator', msg: 'AI model queue depth: 0 (idle)' },
+        { agent: 'analyzer',  msg: 'Historical pattern DB: 2,847 failure signatures indexed' },
+        { agent: 'system',    msg: 'Token budget remaining today: 812,580 / 1,000,000' },
+        { agent: 'reporter',  msg: 'Last report generated 18 min ago' },
+        { agent: 'scanner',   msg: 'Rate limiter: 47/100 requests used this window' },
+        { agent: 'executor',  msg: 'Circuit breaker status: CLOSED (healthy)' },
+        { agent: 'analyzer',  msg: 'Trend: /api/v2/payments latency ↑ 15% over 24h' },
+        { agent: 'parser',    msg: 'No breaking changes detected in monitored specs' },
+    ];
+
+    let ambientIndex = 0;
+    function streamAmbientLog() {
+        if (isRunning) return;
+        const entry = ambientLogs[ambientIndex % ambientLogs.length];
+        addLog(entry.agent, entry.msg);
+        ambientIndex++;
+    }
+
+    // ─── INIT ───
+    renderEndpoints();
+    renderExecutions();
+
+    addLog('system', 'APIProbe v0.9.2 initialized');
+    addLog('system', 'Loading agent configurations...');
+    addLog('system', 'Scanner agent connected (WebSocket)');
+    addLog('system', 'Parser agent connected (WebSocket)');
+    addLog('system', 'Generator agent connected (WebSocket)');
+    addLog('system', 'Executor agent connected (gRPC)');
+    addLog('system', 'Analyzer agent connected (WebSocket)');
+    addLog('system', 'Reporter agent connected (WebSocket)');
+    addLog('system', '<span class="highlight">All 6 agents online — system ready</span>');
+    addLog('system', 'Next scheduled run: ' + getNextRunTime());
+
+    // Ambient log every 8-15 seconds
+    setInterval(streamAmbientLog, 8000 + Math.random() * 7000);
+
+    function getNextRunTime() {
+        const now = new Date();
+        const next = new Date(now.getTime() + 4 * 60 * 60 * 1000);
+        return `${String(next.getHours()).padStart(2,'0')}:${String(next.getMinutes()).padStart(2,'0')}`;
+    }
+</script>
+</body>
+</html>
